@@ -83,7 +83,7 @@ while read -r url; do
         echo "Skipping: Found previously saved filename for $url"
     else
         # dont skip
-        echo "Filename not previously saved"
+        echo "Filename not previously saved for $url"
         echo "Processing: $url"
         filename="$(get_filename_from_url "$url")"
         dest="$IMAGE_DIR/$filename"
