@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
-JSON="${1:-unique-artwork-20251119100609.json}"
-IMAGE_DIR="${PWD}/images"
+export JSON="${1:-unique-artwork-20251119100609.json}"
+export IMAGE_DIR="${PWD}/images"
 mkdir -p "$IMAGE_DIR"
 
-SAVED_FILENAMES="saved_filenames.txt"
+export SAVED_FILENAMES="saved_filenames.txt"
 touch "${SAVED_FILENAMES}"
 
 # Extract PNG URLs into urls.txt (one per line)
@@ -74,9 +74,27 @@ download_if_not_exists () {
     fi
 }
 
-# For each URL: resolve filename from headers or final URL, skip if file exists,
-# and otherwise download (resuming partial downloads when possible).
-while read -r url; do
+save_filename_safely () {
+    local url="$1"
+    local filename="$2"
+    # save the filename to file ; do this in a parallel-processing safe manner
+    # Acquire lock by creating a lock directory (atomic)
+    lockdir="${SAVED_FILENAMES}.lock"
+    while ! mkdir "$lockdir" 2>/dev/null; do
+    sleep 0.05
+    done
+
+    # Append while holding lock
+    printf '%s\t%s\n' "$url" "$filename" >> "$SAVED_FILENAMES"
+
+    # Release lock
+    rmdir "$lockdir"
+}
+
+process_url () {
+    set -euo pipefail
+    local url="$1"
+
     # check if the URL has a saved filename
     if grep -q "$url" "$SAVED_FILENAMES" ; then
         # skip
@@ -90,7 +108,15 @@ while read -r url; do
         download_if_not_exists "$url" "$dest"
 
         # save the final file name
-        printf '%s\t%s\n' "$url" "$filename" >> "$SAVED_FILENAMES"
+        # printf '%s\t%s\n' "$url" "$filename" >> "$SAVED_FILENAMES"
+        save_filename_safely "$url" "$filename"
     fi
+}
 
+export -f process_url save_filename_safely download_if_not_exists get_filename_from_url
+
+# For each URL: resolve filename from headers or final URL, skip if file exists,
+# and otherwise download (resuming partial downloads when possible).
+while read -r url; do
+    parallel -j 8 process_url ::: "$url"
 done < urls.txt

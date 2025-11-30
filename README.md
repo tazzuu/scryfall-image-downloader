@@ -4,10 +4,10 @@ A simple script that will parse the Scryfall Bulk Data JSON and download all the
 
 ## Requirements
 
-Needs `jq` installed to parse JSON
+Needs `jq` installed to parse JSON and GNU `parallel` to run parallel tasks
 
 ```bash
-brew install jq
+brew install jq parallel
 ```
 
 # Usage
